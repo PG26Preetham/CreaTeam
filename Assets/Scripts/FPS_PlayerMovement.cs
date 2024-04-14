@@ -29,10 +29,12 @@ public class FPS_PlayerMovement : MonoBehaviour
     public float _walkSpeed;
     public float _runSpeed;
     public float _slideSpeed;
+    public float _wallRunSpeed;
     public float _speedIncreaseMultiplier;
     public float _slopeIncreaseMultiplier;
 
     public bool _bIsSliding;
+    public bool _bIsWallRunning;
 
     private float _requiredMoveSpeed;
     private float _latRequiredMoveSpeed;
@@ -199,9 +201,13 @@ public class FPS_PlayerMovement : MonoBehaviour
 
     private  void StateHandler()
     {
+        if(_bIsWallRunning)
+        {
+            _movementState = EMovementState.WallRun;
+            _requiredMoveSpeed = _wallRunSpeed;
+        }
 
-
-        if(_bIsSliding)
+        else if(_bIsSliding)
         {
             _movementState = EMovementState.Sliding;
 

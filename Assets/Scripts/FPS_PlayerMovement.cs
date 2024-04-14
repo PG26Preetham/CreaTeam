@@ -9,6 +9,7 @@ public enum EMovementState
     Walking,
     Running,
     Crouch,
+    Sliding,
     Air,
     WallRun
 }
@@ -27,6 +28,14 @@ public class FPS_PlayerMovement : MonoBehaviour
     private float _moveSpeed;
     public float _walkSpeed;
     public float _runSpeed;
+    public float _slideSpeed;
+    public float _speedIncreaseMultiplier;
+    public float _slopeIncreaseMultiplier;
+
+    public bool _bIsSliding;
+
+    private float _requiredMoveSpeed;
+    private float _latRequiredMoveSpeed;
 
     [Header("Crouch")]
     public float _crouchSpeed;
@@ -131,7 +140,7 @@ public class FPS_PlayerMovement : MonoBehaviour
 
         if(IsOnSlope() && !_bIsExitingSlope)
         {
-            _rb.AddForce(GetSlopeMovementDirection() * _moveSpeed * 10, ForceMode.Force);
+            _rb.AddForce(GetSlopeMovementDirection(_moveDirection) * _moveSpeed * 10, ForceMode.Force);
 
             if(_rb.velocity.y > 0)
             {
@@ -190,19 +199,32 @@ public class FPS_PlayerMovement : MonoBehaviour
 
     private  void StateHandler()
     {
+
+
+        if(_bIsSliding)
+        {
+            _movementState = EMovementState.Sliding;
+
+            if(IsOnSlope() && _rb.velocity.y <0.1f)
+            {
+                _requiredMoveSpeed = _slideSpeed;
+            }
+            else
+            {
+                _requiredMoveSpeed = _runSpeed;
+            }
+        }
         //Check if player is grounded and is pressing the sprint key
-        if(Input.GetKey(_crouchKey))
+        else if(Input.GetKey(_crouchKey))
         {
             _movementState =EMovementState.Crouch;
-            _moveSpeed = _crouchSpeed;
+            _requiredMoveSpeed = _crouchSpeed;
         }
-
-
         //Set Sprint
         else if(_bIsGrounded && Input.GetKey(_sprintKey))
         {
             _movementState = EMovementState.Running;
-            _moveSpeed =_runSpeed;
+            _requiredMoveSpeed = _runSpeed;
         }
 
 
@@ -210,7 +232,7 @@ public class FPS_PlayerMovement : MonoBehaviour
         else if(_bIsGrounded)
         {
              _movementState=EMovementState.Walking;
-            _moveSpeed = _walkSpeed;
+             _requiredMoveSpeed = _walkSpeed;
         }
 
         //Set InAir
@@ -218,10 +240,22 @@ public class FPS_PlayerMovement : MonoBehaviour
         {
             _movementState=EMovementState.Air;
         }
+
+
+        if(Mathf.Abs(_requiredMoveSpeed - _latRequiredMoveSpeed) > 0.4f)
+        {
+            StopAllCoroutines();
+            StartCoroutine(SmoothlyLerpMoveSpeed());
+        }
+        else
+        {
+            _moveSpeed = _requiredMoveSpeed;
+        }
+        _latRequiredMoveSpeed = _requiredMoveSpeed;
     }
 
 
-    private bool IsOnSlope()
+    public bool IsOnSlope()
     {
         if(Physics.Raycast(transform.position ,Vector3.down , out _slopeHit , _playerHeight*0.5f + 0.3f))
         {
@@ -231,9 +265,35 @@ public class FPS_PlayerMovement : MonoBehaviour
         return false;
     }
 
-    private Vector3 GetSlopeMovementDirection()
+    public Vector3 GetSlopeMovementDirection(Vector3 Direction)
     {
         //_bIsGrounded = Physics.Raycast(transform.position, Vector3.ProjectOnPlane(Vector3.down , _slopeHit.normal).normalized, _playerHeight * 0.5f + 0.2f, _groundLayer);
-        return Vector3.ProjectOnPlane(_moveDirection , _slopeHit.normal).normalized;
+        return Vector3.ProjectOnPlane(Direction , _slopeHit.normal).normalized;
+    }
+    private IEnumerator SmoothlyLerpMoveSpeed()
+    {
+        // smoothly lerp movementSpeed to desired value
+        float time = 0;
+        float difference = Mathf.Abs(_requiredMoveSpeed - _moveSpeed);
+        float startValue = _moveSpeed;
+
+        while (time < difference)
+        {
+            _moveSpeed = Mathf.Lerp(startValue, _requiredMoveSpeed, time / difference);
+
+            if (IsOnSlope())
+            {
+                float slopeAngle = Vector3.Angle(Vector3.up, _slopeHit.normal);
+                float slopeAngleIncrease = 1 + (slopeAngle / 90f);
+
+                time += Time.deltaTime * _speedIncreaseMultiplier * _slopeIncreaseMultiplier * slopeAngleIncrease;
+            }
+            else
+                time += Time.deltaTime * _speedIncreaseMultiplier;
+
+            yield return null;
+        }
+
+        _moveSpeed = _requiredMoveSpeed;
     }
 }

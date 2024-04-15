@@ -11,7 +11,8 @@ public enum EMovementState
     Crouch,
     Sliding,
     Air,
-    WallRun
+    WallRun,
+    Freeze
 }
 
 public class FPS_PlayerMovement : MonoBehaviour
@@ -74,6 +75,13 @@ public class FPS_PlayerMovement : MonoBehaviour
 
     Rigidbody _rb;
 
+    public bool _bIsFrozen;
+    private bool _bActiveGrapple;
+
+    [Header("Camera")]
+    public PlayerCam _playerCam;
+    public float _grappleFOV = 90f;
+
     private void Start()
     {
         _rb = GetComponent<Rigidbody>();
@@ -94,7 +102,7 @@ public class FPS_PlayerMovement : MonoBehaviour
         SpeedControl();
 
         //Drag
-        if(_bIsGrounded )
+        if(_bIsGrounded && !_bActiveGrapple)
         {
             _rb.drag = _groundDrag;
         }
@@ -113,7 +121,7 @@ public class FPS_PlayerMovement : MonoBehaviour
         HorizontalInput = Input.GetAxisRaw("Horizontal");
         VerticalInput = Input.GetAxisRaw("Vertical");
 
-
+       
 
         if(Input.GetKey(_jumpKey) && _bReadyToJump && _bIsGrounded )
         {
@@ -138,6 +146,10 @@ public class FPS_PlayerMovement : MonoBehaviour
 
     private void MovePlayer()
     {
+        if(_bActiveGrapple)
+        {
+            return;
+        }
         _moveDirection = _orientation.forward * VerticalInput + _orientation.right * HorizontalInput;
 
         if(IsOnSlope() && !_bIsExitingSlope)
@@ -164,6 +176,10 @@ public class FPS_PlayerMovement : MonoBehaviour
 
     private void SpeedControl()
     {
+        if(_bActiveGrapple)
+        {
+           return;
+        }
 
         if(IsOnSlope() && !_bIsExitingSlope)
         {
@@ -201,7 +217,13 @@ public class FPS_PlayerMovement : MonoBehaviour
 
     private  void StateHandler()
     {
-        if(_bIsWallRunning)
+        if (_bIsFrozen)
+        {
+            _movementState = EMovementState.Freeze;
+            _moveSpeed = 0;
+            _rb.velocity = Vector3.zero;
+        }
+        else if (_bIsWallRunning)
         {
             _movementState = EMovementState.WallRun;
             _requiredMoveSpeed = _wallRunSpeed;
@@ -302,4 +324,53 @@ public class FPS_PlayerMovement : MonoBehaviour
 
         _moveSpeed = _requiredMoveSpeed;
     }
+    public Vector3 CalculateJumpVelocity(Vector3 startPoint, Vector3 endPoint, float trajectoryHeight)
+    {
+        float gravity = Physics.gravity.y;
+        float displacementY = endPoint.y - startPoint.y;
+        Vector3 displacementXZ = new Vector3(endPoint.x - startPoint.x, 0f, endPoint.z - startPoint.z);
+
+        Vector3 velocityY = Vector3.up * Mathf.Sqrt(-2 * gravity * trajectoryHeight);
+        Vector3 velocityXZ = displacementXZ / (Mathf.Sqrt(-2 * trajectoryHeight / gravity)
+            + Mathf.Sqrt(2 * (displacementY - trajectoryHeight) / gravity));
+
+        return velocityXZ + velocityY;
+    }
+
+    private bool _bEnableMovementOnNextTouch;
+    public void JumpToPosition(Vector3 targetPosition , float trejectoryHeight)
+    {
+        _bActiveGrapple = true;
+        _velocityToSet = CalculateJumpVelocity(transform.position, targetPosition, trejectoryHeight);
+        Invoke(nameof(SetVelocity), 0.1f);
+
+        Invoke(nameof(ResetRestrictions), 3f);
+    }
+    private Vector3 _velocityToSet;
+    private void SetVelocity()
+    {
+        _bEnableMovementOnNextTouch = true;
+        _rb.velocity = _velocityToSet;
+
+        _playerCam.DoFOV(_grappleFOV);
+    }
+
+    public void ResetRestrictions()
+    {
+        _bActiveGrapple = false;
+
+        _playerCam.DoFOV(80);
+    }
+
+    private void OnCollisionEnter(Collision collision)
+    {
+        if (_bEnableMovementOnNextTouch)
+        {
+            _bEnableMovementOnNextTouch = false;
+            ResetRestrictions();
+
+            GetComponent<Grapple>().StopGrapple();
+        }
+    }
+
 }

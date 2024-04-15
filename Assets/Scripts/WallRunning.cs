@@ -47,6 +47,9 @@ public class WallRunning : MonoBehaviour
     private Rigidbody _playerRB;
     public Transform _orientation;
     private FPS_PlayerMovement _movement;
+
+    [Header("Camera")]
+    public PlayerCam _playerCam;
     // Start is called before the first frame update
     void Start()
     {
@@ -182,6 +185,16 @@ public class WallRunning : MonoBehaviour
     private void StartWallRun()
     {
         _movement._bIsWallRunning = true;
+
+        _playerCam.DoFOV(90f);
+        if(_isLeft)
+        {
+            _playerCam.DoTilt(-15.0f);
+        }
+        else if( _isRight)
+        {
+            _playerCam.DoTilt(15.0f);
+        }
     }
     private void WallRunMovement()
     {
@@ -207,6 +220,8 @@ public class WallRunning : MonoBehaviour
     {
         _playerRB.useGravity = true;
         _movement._bIsWallRunning = false;
+        _playerCam.DoTilt(0);
+        _playerCam.DoFOV(80);
     }
 
     private void WallJump()

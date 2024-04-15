@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using DG.Tweening;
 
 public class PlayerCam : MonoBehaviour
 {
@@ -8,6 +9,7 @@ public class PlayerCam : MonoBehaviour
     public float _senseY;
 
     public Transform _playerOrientation;
+    public Transform _camHolder;
 
     float _xRotation;
     float _yRotation;
@@ -29,7 +31,17 @@ public class PlayerCam : MonoBehaviour
 
         _xRotation = Mathf.Clamp(_xRotation, -90f, 90f);
 
-        transform.rotation = Quaternion.Euler(_xRotation, _yRotation, 0);
+        _camHolder.rotation = Quaternion.Euler(_xRotation, _yRotation, 0);
         _playerOrientation.rotation = Quaternion.Euler(0 , _yRotation, 0);
+    }
+
+    public void DoFOV(float endFOV)
+    {
+        GetComponent<Camera>().DOFieldOfView(endFOV, 0.25f);
+    }
+
+    public void DoTilt(float endTilt)
+    {
+        transform.DOLocalRotate(new Vector3(0, 0, endTilt), 0.25f);
     }
 }

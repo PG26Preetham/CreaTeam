@@ -19,6 +19,15 @@ public class WallRunning : MonoBehaviour
     public float _maxWallRunTime;
     private float _wallRunTimer;
 
+    [Header("WallJump")]
+    public float _wallJumpUpForce;
+    public float _wallJumpSideForce;
+    public KeyCode _wallJumpKey = KeyCode.Space;
+
+    public bool _bIsExitingWall;
+    public float _exitWallTime;
+    private float _exitWallTimer;
+
     [Header("Input")]
     private float _horizontalInput;
     private float _verticalInput;
@@ -41,6 +50,7 @@ public class WallRunning : MonoBehaviour
     // Start is called before the first frame update
     void Start()
     {
+        _bIsExitingWall = false;
         _playerRB = GetComponent<Rigidbody>();
         _movement = GetComponent<FPS_PlayerMovement>();
     }
@@ -132,11 +142,32 @@ public class WallRunning : MonoBehaviour
 
 
 
-        if(IsAboveHeight() && WallCheck() && CheckIfKeyDown())
+        if(IsAboveHeight() && WallCheck() && CheckIfKeyDown() && !_bIsExitingWall)
         {
             if(!_movement._bIsWallRunning)
             {
                 StartWallRun();
+            }
+            if(Input.GetKeyDown(_wallJumpKey))
+            {
+                WallJump();
+            }
+        }
+        else if(_bIsExitingWall)
+        {
+            if(_movement._bIsWallRunning)
+            {
+                StopWallRun();
+
+               
+            }
+            if (_exitWallTimer > 0)
+            {
+                _exitWallTimer -= Time.deltaTime;
+            }
+            if (_exitWallTimer <= 0)
+            {
+                _bIsExitingWall = false;
             }
         }
         else
@@ -176,5 +207,17 @@ public class WallRunning : MonoBehaviour
     {
         _playerRB.useGravity = true;
         _movement._bIsWallRunning = false;
+    }
+
+    private void WallJump()
+    {
+        _bIsExitingWall = true;
+        _exitWallTimer = _exitWallTime;
+        Vector3 wallNormal = _isRight ? _rightWallHit.normal : _leftWallHit.normal;
+
+        Vector3 JumpDirectionForce= transform.up * _wallJumpUpForce + wallNormal * _wallJumpSideForce;
+
+        _playerRB.velocity = new Vector3(_playerRB.velocity.x, 0, _playerRB.velocity.z);
+        _playerRB.AddForce(JumpDirectionForce, ForceMode.Impulse);
     }
 }
